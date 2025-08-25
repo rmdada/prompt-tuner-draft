@@ -4,415 +4,15 @@
 
 {% block head %}
 <style>
-    :root {
-        --primary-blue: #007bff;
-        --light-blue: #e3f2fd;
-        --border-color: #dee2e6;
-        --text-muted: #6c757d;
-        --danger-red: #dc3545;
-        --success-green: #28a745;
-    }
-
-    .enhanced-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 2rem;
-    }
-
-    /* Tab Navigation */
-    .tab-navigation {
-        display: flex;
-        border-bottom: 2px solid var(--border-color);
-        margin-bottom: 2rem;
-        gap: 0;
-    }
-
-    .tab-button {
-        background: none;
-        border: none;
-        padding: 1rem 2rem;
-        font-size: 1.1rem;
-        font-weight: 500;
-        color: var(--text-muted);
-        cursor: pointer;
-        border-bottom: 3px solid transparent;
-        transition: all 0.3s ease;
-        position: relative;
-    }
-
-    .tab-button:hover {
-        color: var(--primary-blue);
-        background-color: #f8f9fa;
-    }
-
-    .tab-button.active {
-        color: var(--primary-blue);
-        border-bottom-color: var(--primary-blue);
-        background-color: white;
-    }
-
-    /* Tab Content */
-    .tab-content {
-        display: none;
-    }
-
-    .tab-content.active {
-        display: block;
-        animation: fadeIn 0.3s ease-in-out;
-    }
-
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Card Styles */
-    .enhanced-card {
-        background: white;
-        border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        transition: box-shadow 0.2s ease;
-    }
-
-    .enhanced-card:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    }
+    /* Minimal custom styles for unique features only */
     
-    /* Form Elements */
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-
-    .form-label {
-        font-weight: 500;
-        color: #333;
-        margin-bottom: 0.5rem;
-        display: block;
-    }
-
-    .form-input {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        font-size: 1rem;
-        transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .form-input:focus {
-        outline: none;
-        border-color: var(--primary-blue);
-        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-    }
-
-    .form-input::placeholder {
-        color: #adb5bd;
-    }
-
-
-    /* Generic Option Selection Cards */
-    .option-selection {
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 0.75rem;
-        margin-bottom: 1.5rem;
-    }
-
-    .option-card {
-        border: 2px solid var(--border-color);
-        border-radius: 8px;
-        padding: 1rem;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        background: white;
-    }
-
-    .option-card:hover {
-        border-color: var(--primary-blue);
-        background-color: var(--light-blue);
-    }
-
-    .option-card.selected {
-        border-color: var(--primary-blue);
-        background-color: var(--light-blue);
-    }
-
-    .option-icon {
-        font-size: 1.5rem;
-        width: 2rem;
-        text-align: center;
-    }
-
-    .option-name {
-        font-weight: 500;
-        color: #333;
-    }
-
-    /* Buttons */
-    .btn-primary {
-        background-color: var(--primary-blue);
-        border: none;
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border-radius: 6px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    }
-
-    .btn-primary:hover {
-        background-color: #0056b3;
-    }
-
-    /* Plus Icon Button */
-    .btn-plus {
-        background-color: var(--primary-blue);
-        border: none;
-        color: white;
-        width: 28px;
-        height: 28px;
-        border-radius: 50%;
-        font-size: 1.2rem;
-        font-weight: bold;
-        cursor: pointer;
-        transition: all 0.2s ease;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-left: 0.5rem;
-        line-height: 1;
-    }
-
-    .btn-plus:hover {
-        background-color: #0056b3;
-        transform: scale(1.1);
-    }
-
-    /* Section Header with Plus */
-    .section-header-with-plus {
-        display: flex;
-        align-items: center;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 1rem;
-    }
-
-    .btn-danger {
-        background-color: var(--danger-red);
-        border: none;
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border-radius: 6px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    }
-
-    .btn-danger:hover {
-        background-color: #c82333;
-    }
-
-    .btn-secondary {
-        background-color: var(--text-muted);
-        border: none;
-        color: white;
-        padding: 0.75rem 1.5rem;
-        border-radius: 6px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: background-color 0.2s ease;
-    }
-
-    .btn-secondary:hover {
-        background-color: #545b62;
-    }
-
-    /* Section Headers */
-    .section-header {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid var(--border-color);
-    }
-
-    .subsection-header {
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 1rem;
-    }
-
-    /* Customer Review Section */
-    .review-section {
-        background-color: #f8f9fa;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        padding: 1.5rem;
-        margin-top: 1rem;
-    }
-
-    .rating-input {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        margin-bottom: 1rem;
-    }
-
-    .rating-label {
-        font-weight: 500;
-        color: #333;
-        min-width: 100px;
-    }
-
-    .rating-number {
-        width: 80px;
-        padding: 0.5rem;
-        border: 1px solid var(--border-color);
-        border-radius: 4px;
-        text-align: center;
-    }
-
-    .comment-textarea {
-        width: 100%;
-        min-height: 100px;
-        padding: 0.75rem;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        resize: vertical;
-        font-family: inherit;
-    }
-
-    /* Action Buttons */
-    .action-buttons {
-        display: flex;
-        gap: 1rem;
-        margin-top: 1.5rem;
-        justify-content: flex-start;
-    }
-
-    /* Responsive Design */
-    @media (max-width: 768px) {
-        .enhanced-container {
-            padding: 1rem;
-        }
-        
-        .tab-button {
-            padding: 0.75rem 1rem;
-            font-size: 1rem;
-        }
-        
-        .action-buttons {
-            flex-direction: column;
-        }
-        
-        .action-buttons button {
-            width: 100%;
-        }
-    }
-
-    /* Empty State */
-    .empty-state {
-        text-align: center;
-        padding: 3rem 1rem;
-        color: var(--text-muted);
-    }
-
-    .empty-state-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        opacity: 0.5;
-    }
-
-    /* Form Grid */
-    .form-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-    }
-
-    @media (max-width: 768px) {
-        .form-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-
-    /* Date Input Styling */
-    .date-input {
-        position: relative;
-    }
-
-    .date-input input[type="date"] {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        font-size: 1rem;
-    }
-
-    /* Select Styling */
-    .select-input {
-        width: 100%;
-        padding: 0.75rem;
-        border: 1px solid var(--border-color);
-        border-radius: 6px;
-        font-size: 1rem;
-        background-color: white;
-        cursor: pointer;
-    }
-
-    .select-input:focus {
-        outline: none;
-        border-color: var(--primary-blue);
-        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
-    }
-
-    /* Schema Selector Tiles */
-    .schema-selector {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 1.5rem;
-        margin-bottom: 3rem;
-    }
-
-    .schema-tile {
-        background: white;
-        border: 2px solid var(--border-color);
-        border-radius: 12px;
-        padding: 2rem;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        text-align: center;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .schema-tile:hover {
-        border-color: var(--primary-blue);
-        box-shadow: 0 8px 25px rgba(0, 123, 255, 0.15);
-        transform: translateY(-2px);
-    }
-
-    .schema-tile.active {
-        border-color: var(--primary-blue);
-        background: linear-gradient(135deg, var(--light-blue) 0%, white 100%);
-        box-shadow: 0 8px 25px rgba(0, 123, 255, 0.2);
-    }
-
+    /* Schema tile selection states */
     .schema-tile.active::before {
         content: '✓';
         position: absolute;
         top: 1rem;
         right: 1rem;
-        background: var(--primary-blue);
+        background: var(--bs-primary);
         color: white;
         width: 24px;
         height: 24px;
@@ -423,83 +23,91 @@
         font-size: 0.8rem;
         font-weight: bold;
     }
-
-    .schema-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        display: block;
+    
+    /* Plus button circular styling */
+    .btn-plus {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        font-size: 1.2rem;
+        font-weight: bold;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 0.5rem;
+        line-height: 1;
     }
-
-    .schema-title {
-        font-size: 1.25rem;
-        font-weight: 600;
-        color: #333;
-        margin-bottom: 0.5rem;
+    
+    .btn-plus:hover {
+        transform: scale(1.1);
     }
-
-    .schema-description {
-        color: var(--text-muted);
-        font-size: 0.9rem;
-        line-height: 1.4;
+    
+    /* Array item left border accent */
+    .array-item-card {
+        border-left: 3px solid var(--bs-primary);
+        margin-left: 1rem;
     }
-
-    @media (max-width: 768px) {
-        .schema-selector {
-            grid-template-columns: 1fr;
-        }
-        
-        .schema-tile {
-            padding: 1.5rem;
-        }
-        
-        .schema-icon {
-            font-size: 2.5rem;
-        }
+    
+    /* Option card selection states */
+    .option-card {
+        border: 2px solid var(--bs-border-color);
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .option-card:hover {
+        border-color: var(--bs-primary);
+        background-color: var(--bs-light);
+    }
+    
+    .option-card.selected {
+        border-color: var(--bs-primary);
+        background-color: var(--bs-light);
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="enhanced-container">
-    <div class="page-header" style="margin-bottom: 2rem;">
-        <h1 style="font-size: 2rem; font-weight: 600; color: #333; margin-bottom: 0.5rem;">
+<div class="container-lg py-4">
+    <div class="mb-4">
+        <h1 class="h2 fw-semibold text-dark mb-2">
             Dynamic Workflows
         </h1>
-        <p style="color: var(--text-muted); margin: 0;">
+        <p class="text-muted mb-0">
             Schema-driven workflow processing with dynamic UI generation
         </p>
     </div>
 
-    <div class="section-header">Schema Selection</div>
-    <div class="schema-selector" id="schema-selector">
+    <div class="h4 fw-semibold border-bottom pb-2 mb-4">Schema Selection</div>
+    <div class="row row-cols-1 row-cols-md-2 g-4 mb-5" id="schema-selector">
         </div>
 
-    <div class="section-header" id="form-header" style="display: none;">Dynamic Form</div>
+    <div class="h4 fw-semibold border-bottom pb-2 mb-4" id="form-header" style="display: none;">Dynamic Form</div>
     
     <div id="dynamic-form-container">
         </div>
     
-    <div class="action-buttons" id="form-actions" style="display: none;">
-        <button class="btn-primary" id="add-entity-btn" onclick="addEntity()">Add Entity</button>
+    <div class="d-flex gap-3 mb-4" id="form-actions" style="display: none;">
+        <button class="btn btn-primary" id="add-entity-btn" onclick="addEntity()">Add Entity</button>
     </div>
 
-    <div style="margin-top: 3rem; padding-top: 2rem; border-top: 2px solid var(--border-color);">
-        <div class="action-buttons">
-            <button class="btn-primary" onclick="processData()" style="font-size: 1.1rem; padding: 1rem 2rem;">
+    <div class="border-top pt-4 mt-5">
+        <div class="d-flex flex-wrap gap-3">
+            <button class="btn btn-primary btn-lg" onclick="processData()">
                 🚀 Process All Data
             </button>
-            <button class="btn-secondary" onclick="exportData()">
+            <button class="btn btn-secondary" onclick="exportData()">
                 📤 Export Data
             </button>
-            <button class="btn-secondary" onclick="resetAll()">
+            <button class="btn btn-secondary" onclick="resetAll()">
                 🔄 Reset All
             </button>
         </div>
     </div>
 
-    <div id="results-section" style="margin-top: 2rem; display: none;">
-        <div class="section-header">Processing Results</div>
-        <div id="results-container" class="enhanced-card">
+    <div id="results-section" class="mt-4" style="display: none;">
+        <div class="h4 fw-semibold border-bottom pb-2 mb-4">Processing Results</div>
+        <div id="results-container" class="card card-body">
             </div>
     </div>
 </div>
@@ -575,11 +183,11 @@ async function fetchSchema(workflowName) {
 // Dynamic Schema Tile Generation
 async function generateSchemaTiles() {
     const selectorContainer = document.getElementById('schema-selector');
-    selectorContainer.innerHTML = '<div class="loading">Loading schemas...</div>';
+    selectorContainer.innerHTML = '<div class="text-center py-4">Loading schemas...</div>';
 
     let tilesHtml = '';
     if (availableWorkflows.length === 0) {
-        selectorContainer.innerHTML = '<div class="empty-state">No workflows found.</div>';
+        selectorContainer.innerHTML = '<div class="text-center py-5 text-muted">No workflows found.</div>';
         return;
     }
 
@@ -589,19 +197,27 @@ async function generateSchemaTiles() {
             const rootModel = schema.schemas.RootModel;
             const schemaTitle = getSchemaTitle(rootModel, workflowName);
             tilesHtml += `
-                <div class="schema-tile" id="${workflowName}-schema" onclick="selectSchema('${workflowName}', this)">
-                    <div class="schema-icon">⚙️</div>
-                    <div class="schema-title">${schemaTitle}</div>
-                    <div class="schema-description">${rootModel.description || `Dynamic ${workflowName.replace(/_/g, ' ')} workflow`}</div>
+                <div class="col">
+                    <div class="card card-hover h-100 schema-tile position-relative" id="${workflowName}-schema" onclick="selectSchema('${workflowName}', this)" style="cursor: pointer;">
+                        <div class="card-body text-center p-4">
+                            <div class="display-4 mb-3">⚙️</div>
+                            <h5 class="card-title fw-semibold">${schemaTitle}</h5>
+                            <p class="card-text text-muted small">${rootModel.description || `Dynamic ${workflowName.replace(/_/g, ' ')} workflow`}</p>
+                        </div>
+                    </div>
                 </div>
             `;
         } catch (error) {
             console.error(`Failed to load schema for ${workflowName}:`, error);
             tilesHtml += `
-                <div class="schema-tile disabled">
-                    <div class="schema-icon">❌</div>
-                    <div class="schema-title">${workflowName.replace(/_/g, ' ')}</div>
-                    <div class="schema-description">Failed to load schema</div>
+                <div class="col">
+                    <div class="card h-100 border-danger">
+                        <div class="card-body text-center p-4">
+                            <div class="display-4 mb-3">❌</div>
+                            <h5 class="card-title">${workflowName.replace(/_/g, ' ')}</h5>
+                            <p class="card-text text-muted small">Failed to load schema</p>
+                        </div>
+                    </div>
                 </div>
             `;
         }
@@ -678,9 +294,9 @@ function generateFieldHtml(fieldName, field, allSchemas) {
     switch (field.ui_component) {
         case 'text_input':
             return `
-                <div class="form-group">
-                    <label class="form-label">${displayName}</label>
-                    <input type="text" class="form-input" id="${fieldId}" 
+                <div class="mb-3">
+                    <label class="form-label" for="${fieldId}">${displayName}</label>
+                    <input type="text" class="form-control" id="${fieldId}" 
                            placeholder="Enter ${displayName.toLowerCase()}"
                            onchange="updateFormData('${fieldName}', this.value)">
                 </div>
@@ -688,9 +304,9 @@ function generateFieldHtml(fieldName, field, allSchemas) {
         case 'number_input':
             const numConf = field.number_config || {};
             return `
-                <div class="form-group">
-                    <label class="form-label">${displayName}</label>
-                    <input type="number" class="form-input" id="${fieldId}"
+                <div class="mb-3">
+                    <label class="form-label" for="${fieldId}">${displayName}</label>
+                    <input type="number" class="form-control" id="${fieldId}"
                            min="${numConf.min || ''}" max="${numConf.max || ''}" step="${numConf.step || 1}"
                            placeholder="Enter ${displayName.toLowerCase()}"
                            onchange="updateFormData('${fieldName}', parseFloat(this.value))">
@@ -702,9 +318,9 @@ function generateFieldHtml(fieldName, field, allSchemas) {
             return generateUnionSelectField(fieldName, field, allSchemas);
         default:
             return `
-                <div class="form-group">
-                    <label class="form-label">${displayName}</label>
-                    <input type="text" class="form-input" id="${fieldId}"
+                <div class="mb-3">
+                    <label class="form-label" for="${fieldId}">${displayName}</label>
+                    <input type="text" class="form-control" id="${fieldId}"
                            placeholder="Enter ${displayName.toLowerCase()}"
                            onchange="updateFormData('${fieldName}', this.value)">
                 </div>
@@ -716,12 +332,14 @@ function generateArrayField(fieldName, field, allSchemas) {
     const displayName = field.display_name || field.title || fieldName;
     fieldCache[`${currentSchema}_${fieldName}`] = field;
     return `
-        <div class="enhanced-card">
-            <div class="section-header-with-plus">
-                <span>${displayName}</span>
-                <button class="btn-plus" onclick="addArrayItemByName('${fieldName}')" title="Add ${displayName}">+</button>
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between mb-3">
+                    <h5 class="card-title mb-0">${displayName}</h5>
+                    <button class="btn btn-primary btn-plus" onclick="addArrayItemByName('${fieldName}')" title="Add ${displayName}">+</button>
+                </div>
+                <div id="array-${fieldName}"></div>
             </div>
-            <div id="array-${fieldName}" class="array-container"></div>
         </div>
     `;
 }
