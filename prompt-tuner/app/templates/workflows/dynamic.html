@@ -68,7 +68,7 @@
 {% endblock %}
 
 {% block content %}
-<div class="container-lg py-4">
+<div class="container-lg py-4" x-data="dynamicWorkflowApp()" x-init="init()">
     <div class="mb-4">
         <h1 class="h2 fw-semibold text-dark mb-2">
             Dynamic Workflows
@@ -80,611 +80,693 @@
 
     <div class="h4 fw-semibold border-bottom pb-2 mb-4">Schema Selection</div>
     <div class="row row-cols-1 row-cols-md-2 g-4 mb-5" id="schema-selector">
-        </div>
+        <!-- Loading state -->
+        <template x-if="!availableWorkflows.length && !schemasLoaded">
+            <div class="text-center py-4">Loading schemas...</div>
+        </template>
+        
+        <!-- No workflows found -->
+        <template x-if="availableWorkflows.length === 0 && schemasLoaded">
+            <div class="text-center py-5 text-muted">No workflows found.</div>
+        </template>
+        
+        <!-- Schema tiles -->
+        <template x-for="workflow in availableWorkflows" :key="workflow.name">
+            <div class="col">
+                <div class="card card-hover h-100 schema-tile position-relative" 
+                     :id="workflow.name + '-schema'"
+                     :class="{'active': currentSchema === workflow.name}"
+                     x-on:click="selectSchema(workflow.name)" 
+                     style="cursor: pointer;">
+                    <div class="card-body text-center p-4">
+                        <div class="display-4 mb-3">⚙️</div>
+                        <h5 class="card-title fw-semibold" x-text="workflow.title"></h5>
+                        <p class="card-text text-muted small" x-text="workflow.description"></p>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
 
-    <div class="h4 fw-semibold border-bottom pb-2 mb-4" id="form-header" style="display: none;">Dynamic Form</div>
+    <div class="h4 fw-semibold border-bottom pb-2 mb-4" x-show="showFormHeader" x-text="formTitle">Dynamic Form</div>
     
-    <div id="dynamic-form-container">
-        </div>
+    <div id="dynamic-form-container" x-html="dynamicFormHtml">
+    </div>
     
-    <div class="d-flex gap-3 mb-4" id="form-actions" style="display: none;">
-        <button class="btn btn-primary" id="add-entity-btn" onclick="addEntity()">Add Entity</button>
+    <div class="d-flex gap-3 mb-4" x-show="showFormActions">
+        <button class="btn btn-primary" x-on:click="addEntity()">Add Entity</button>
     </div>
 
     <div class="border-top pt-4 mt-5">
         <div class="d-flex flex-wrap gap-3">
-            <button class="btn btn-primary btn-lg" onclick="processData()">
+            <button class="btn btn-primary btn-lg" 
+                    x-on:click="processData()"
+                    :disabled="!currentSchema || !Object.keys(getFormDataForSchema()).length">
                 🚀 Process All Data
             </button>
-            <button class="btn btn-secondary" onclick="exportData()">
+            <button class="btn btn-secondary" 
+                    x-on:click="exportData()"
+                    :disabled="!currentSchema || !Object.keys(getFormDataForSchema()).length">
                 📤 Export Data
             </button>
-            <button class="btn btn-secondary" onclick="resetAll()">
+            <button class="btn btn-secondary" x-on:click="resetAll()">
                 🔄 Reset All
             </button>
         </div>
     </div>
 
-    <div id="results-section" class="mt-4" style="display: none;">
+    <div class="mt-4" x-show="showResults">
         <div class="h4 fw-semibold border-bottom pb-2 mb-4">Processing Results</div>
-        <div id="results-container" class="card card-body">
-            </div>
+        <div class="card card-body" x-html="resultsHtml">
+        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// Global data storage
-let formData = {};
-let currentSchema = null;
-let schemaCache = {};
-let availableWorkflows = [];
-let fieldCache = {}; // Store field definitions for array items
+// Alpine.js Component for Dynamic Workflows
+function dynamicWorkflowApp() {
+    return {
+        // Reactive data properties
+        formData: {},
+        currentSchema: null,
+        availableWorkflows: [],
+        schemaCache: {},
+        fieldCache: {},
+        schemasLoaded: false,
+        showFormHeader: false,
+        showFormActions: false,
+        showResults: false,
+        formTitle: 'Dynamic Form',
+        dynamicFormHtml: '',
+        resultsHtml: '',
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:8000/api/v1/custom-workflows';
+        // API Configuration
+        API_BASE_URL: 'http://localhost:8000/api/v1/custom-workflows',
 
-// Fetch available workflows on page load
-document.addEventListener('DOMContentLoaded', async function() {
-    console.log('Dynamic Workflows System loaded');
-    await fetchAvailableWorkflows();
-    await generateSchemaTiles();
-    console.log('Schema tiles generated successfully');
-});
+        // Initialization
+        async init() {
+            console.log('Dynamic Workflows System loaded (Alpine.js)');
+            await this.fetchAvailableWorkflows();
+            console.log('Schema tiles generated successfully');
+        },
 
-async function fetchAvailableWorkflows() {
-    try {
-        // Hardcoded available workflows
-        availableWorkflows = ['restaurant_recommender', 'bike_insights'];
-        console.log('[fetchAvailableWorkflows] availableWorkflows (hardcoded):', availableWorkflows);
-    } catch (error) {
-        console.error('[fetchAvailableWorkflows] Failed to fetch available workflows:', error);
-        availableWorkflows = []; // Default to an empty array if the fetch fails
-    }
-}
+        // Fetch available workflows
+        async fetchAvailableWorkflows() {
+            // Prevent multiple simultaneous calls
+            if (this._isLoadingWorkflows) {
+                console.log('[fetchAvailableWorkflows] Already loading workflows, skipping...');
+                return;
+            }
+            
+            this._isLoadingWorkflows = true;
+            
+            try {
+                // Reset state first
+                this.availableWorkflows = [];
+                this.schemasLoaded = false;
+                
+                // Hardcoded available workflows
+                const workflowNames = ['bike_insights', 'test'];
+                console.log('[fetchAvailableWorkflows] Starting to process workflows:', workflowNames);
+                
+                for (const workflowName of workflowNames) {
+                    console.log(`[fetchAvailableWorkflows] Processing workflow: ${workflowName}`);
+                    try {
+                        const schema = await this.fetchSchema(workflowName);
+                        const rootModel = schema.schemas.RootModel;
+                        const schemaTitle = this.getSchemaTitle(rootModel, workflowName);
+                        
+                        const workflow = {
+                            name: workflowName,
+                            title: schemaTitle,
+                            description: rootModel.description || `Dynamic ${workflowName.replace(/_/g, ' ')} workflow`
+                        };
+                        
+                        this.availableWorkflows.push(workflow);
+                        console.log(`[fetchAvailableWorkflows] Successfully added workflow: ${workflowName}`, workflow);
+                    } catch (error) {
+                        console.error(`Failed to load schema for ${workflowName}:`, error);
+                        
+                        // Create unique fallback titles based on workflow name
+                        const fallbackTitle = this.createFallbackTitle(workflowName);
+                        const fallbackWorkflow = {
+                            name: workflowName,
+                            title: fallbackTitle,
+                            description: `${fallbackTitle} workflow (schema unavailable)`
+                        };
+                        
+                        this.availableWorkflows.push(fallbackWorkflow);
+                        console.log(`[fetchAvailableWorkflows] Added fallback workflow: ${workflowName}`, fallbackWorkflow);
+                    }
+                }
+                
+                this.schemasLoaded = true;
+                console.log('[fetchAvailableWorkflows] Final availableWorkflows:', this.availableWorkflows);
+                console.log(`[fetchAvailableWorkflows] Total workflows loaded: ${this.availableWorkflows.length}`);
+                
+            } catch (error) {
+                console.error('[fetchAvailableWorkflows] Failed to fetch available workflows:', error);
+                this.availableWorkflows = [];
+                this.schemasLoaded = true;
+            } finally {
+                this._isLoadingWorkflows = false;
+            }
+        },
+        // Add loading flag to prevent duplicate calls
+        _isLoadingWorkflows: false,
+        
+        // Create unique fallback title for workflows when schema loading fails
+        createFallbackTitle(workflowName) {
+            // Convert workflow name to a readable title
+            const title = workflowName
+                .replace(/_/g, ' ')
+                .replace(/\b\w/g, l => l.toUpperCase());
+            
+            // Add specific suffixes for known workflows
+            if (workflowName.includes('copy')) {
+                return title;
+            } else if (workflowName === 'bike_insights') {
+                return 'Bike Insights Original';
+            }
+            
+            return title;
+        },
 
-// Utility function to clean up display names
-function cleanDisplayName(name) {
-    if (!name) return '';
-    let cleaned = name.replace(/^RootModel_/i, '');
-    cleaned = cleaned.replace(/_/g, ' ');
-    cleaned = cleaned.replace(/\b\w/g, l => l.toUpperCase());
-    return cleaned;
-}
+        // API Functions
+        async fetchSchema(workflowName) {
+            if (this.schemaCache[workflowName]) {
+                return this.schemaCache[workflowName];
+            }
+            try {
+                const response = await fetch(`${this.API_BASE_URL}/schema/${workflowName}/`);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const schema = await response.json();
+                this.schemaCache[workflowName] = schema;
+                return schema;
+            } catch (error) {
+                console.error(`Failed to fetch schema for ${workflowName}:`, error);
+                throw new Error(`Schema fetch failed: ${workflowName}`);
+            }
+        },
 
-// Get user-friendly schema title
-function getSchemaTitle(schema, workflowName) {
-    if (schema.title && schema.title !== 'RootModel') {
-        return schema.title;
-    }
-    return workflowName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-}
+        // Schema selection
+        async selectSchema(schemaName) {
+            this.currentSchema = schemaName;
+            await this.loadSchemaForm(schemaName);
+            this.resetFormData();
+        },
 
-// API Functions
-async function fetchSchema(workflowName) {
-    if (schemaCache[workflowName]) {
-        return schemaCache[workflowName];
-    }
-    try {
-        const response = await fetch(`${API_BASE_URL}/schema/${workflowName}/`);
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const schema = await response.json();
-        schemaCache[workflowName] = schema;
-        return schema;
-    } catch (error) {
-        console.error(`Failed to fetch schema for ${workflowName}:`, error);
-        throw new Error(`Schema fetch failed: ${workflowName}`);
-    }
-}
-
-// Dynamic Schema Tile Generation
-async function generateSchemaTiles() {
-    const selectorContainer = document.getElementById('schema-selector');
-    selectorContainer.innerHTML = '<div class="text-center py-4">Loading schemas...</div>';
-
-    let tilesHtml = '';
-    if (availableWorkflows.length === 0) {
-        selectorContainer.innerHTML = '<div class="text-center py-5 text-muted">No workflows found.</div>';
-        return;
-    }
-
-    for (const workflowName of availableWorkflows) {
-        try {
-            const schema = await fetchSchema(workflowName);
-            const rootModel = schema.schemas.RootModel;
-            const schemaTitle = getSchemaTitle(rootModel, workflowName);
-            tilesHtml += `
-                <div class="col">
-                    <div class="card card-hover h-100 schema-tile position-relative" id="${workflowName}-schema" onclick="selectSchema('${workflowName}', this)" style="cursor: pointer;">
-                        <div class="card-body text-center p-4">
-                            <div class="display-4 mb-3">⚙️</div>
-                            <h5 class="card-title fw-semibold">${schemaTitle}</h5>
-                            <p class="card-text text-muted small">${rootModel.description || `Dynamic ${workflowName.replace(/_/g, ' ')} workflow`}</p>
+        async loadSchemaForm(schemaName) {
+            try {
+                const schema = await this.fetchSchema(schemaName);
+                const rootModel = schema.schemas.RootModel;
+                
+                this.showFormHeader = true;
+                this.showFormActions = true;
+                
+                this.formTitle = this.getSchemaTitle(rootModel, schemaName);
+                
+                const formHtml = this.generateFormFromSchema(rootModel, schema.schemas);
+                this.dynamicFormHtml = formHtml;
+                
+                this.initializeFormData(rootModel);
+                
+                // Use nextTick equivalent to wait for DOM update
+                setTimeout(async () => {
+                    await this.autoAddFirstArrayItems(rootModel);
+                }, 50);
+            } catch (error) {
+                console.error('Failed to load schema form:', error);
+                this.dynamicFormHtml = `
+                    <div class="enhanced-card">
+                        <div class="empty-state">
+                            <div class="empty-state-icon">❌</div>
+                            <p>Failed to load schema form</p>
                         </div>
+                    </div>
+                `;
+            }
+        },
+
+        async autoAddFirstArrayItems(rootModel) {
+            if (!rootModel.properties) return;
+            for (const [fieldName, field] of Object.entries(rootModel.properties)) {
+                if (field.type === 'array' && field.ui_component === 'array') {
+                    setTimeout(async () => {
+                        await this.addArrayItemByName(fieldName);
+                    }, 100);
+                }
+            }
+        },
+
+        // Form generation methods (kept as utility functions)
+        generateFormFromSchema(model, allSchemas) {
+            if (!model.properties) return '';
+            let formHtml = '';
+            const displayOrder = model.ui_metadata?.display_order || Object.keys(model.properties);
+            for (const fieldName of displayOrder) {
+                const field = model.properties[fieldName];
+                if (field) {
+                    formHtml += this.generateFieldHtml(fieldName, field, allSchemas);
+                }
+            }
+            return formHtml;
+        },
+
+        generateFieldHtml(fieldName, field, allSchemas) {
+            const displayName = field.display_name || field.title || fieldName;
+            const fieldId = `field-${fieldName}`;
+            
+            switch (field.ui_component) {
+                case 'text_input':
+                    return `
+                        <div class="mb-3">
+                            <label class="form-label" for="${fieldId}">${displayName}</label>
+                            <input type="text" class="form-control" id="${fieldId}" 
+                                   placeholder="Enter ${displayName.toLowerCase()}"
+                                   x-on:change="updateFormData('${fieldName}', $event.target.value)">
+                        </div>
+                    `;
+                case 'number_input':
+                    const numConf = field.number_config || {};
+                    return `
+                        <div class="mb-3">
+                            <label class="form-label" for="${fieldId}">${displayName}</label>
+                            <input type="number" class="form-control" id="${fieldId}"
+                                   min="${numConf.min || ''}" max="${numConf.max || ''}" step="${numConf.step || 1}"
+                                   placeholder="Enter ${displayName.toLowerCase()}"
+                                   x-on:change="updateFormData('${fieldName}', parseFloat($event.target.value))">
+                        </div>
+                    `;
+                case 'array':
+                    return this.generateArrayField(fieldName, field, allSchemas);
+                case 'union_select':
+                    return this.generateUnionSelectField(fieldName, field, allSchemas);
+                default:
+                    return `
+                        <div class="mb-3">
+                            <label class="form-label" for="${fieldId}">${displayName}</label>
+                            <input type="text" class="form-control" id="${fieldId}"
+                                   placeholder="Enter ${displayName.toLowerCase()}"
+                                   x-on:change="updateFormData('${fieldName}', $event.target.value)">
+                        </div>
+                    `;
+            }
+        },
+
+        generateArrayField(fieldName, field, allSchemas) {
+            const displayName = field.display_name || field.title || fieldName;
+            this.fieldCache[`${this.currentSchema}_${fieldName}`] = field;
+            return `
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <div class="d-flex align-items-center justify-content-between mb-3">
+                            <h5 class="card-title mb-0">${displayName}</h5>
+                            <button class="btn btn-primary btn-plus" x-on:click="addArrayItemByName('${fieldName}')" title="Add ${displayName}">+</button>
+                        </div>
+                        <div id="array-${fieldName}"></div>
                     </div>
                 </div>
             `;
-        } catch (error) {
-            console.error(`Failed to load schema for ${workflowName}:`, error);
-            tilesHtml += `
-                <div class="col">
-                    <div class="card h-100 border-danger">
-                        <div class="card-body text-center p-4">
-                            <div class="display-4 mb-3">❌</div>
-                            <h5 class="card-title">${workflowName.replace(/_/g, ' ')}</h5>
-                            <p class="card-text text-muted small">Failed to load schema</p>
-                        </div>
+        },
+
+        generateUnionSelectField(fieldName, field, allSchemas) {
+            const displayName = field.display_name || field.title || fieldName;
+            const unionOptions = field.union_options || [];
+            let optionsHtml = unionOptions.map(option => `
+                <div class="option-card" x-on:click="selectUnionOption('${fieldName}', '${option.value}', $event.currentTarget)">
+                    <span class="option-icon">${this.getUnionIcon(option.label)}</span>
+                    <span class="option-name">${option.label}</span>
+                </div>
+            `).join('');
+
+            return `
+                <div class="form-group">
+                    <label class="form-label">${displayName}</label>
+                    <div class="option-selection" id="union-${fieldName}">${optionsHtml}</div>
+                </div>
+            `;
+        },
+
+        // Utility functions
+        cleanDisplayName(name) {
+            if (!name) return '';
+            let cleaned = name.replace(/^RootModel_/i, '');
+            cleaned = cleaned.replace(/_/g, ' ');
+            cleaned = cleaned.replace(/\b\w/g, l => l.toUpperCase());
+            return cleaned;
+        },
+
+        getSchemaTitle(schema, workflowName) {
+            if (schema.title && schema.title !== 'RootModel') {
+                return schema.title;
+            }
+            return workflowName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        },
+
+        getUnionIcon(label) {
+            return '🔧';
+        },
+
+        // Form data management
+        updateFormData(fieldName, value) {
+            if (!this.formData[this.currentSchema]) this.formData[this.currentSchema] = {};
+            this.formData[this.currentSchema][fieldName] = value;
+            console.log('Updated form data:', this.formData);
+        },
+
+        initializeFormData(model) {
+            if (!this.formData[this.currentSchema]) this.formData[this.currentSchema] = {};
+            if (model.default_values) {
+                Object.assign(this.formData[this.currentSchema], model.default_values);
+            }
+        },
+
+        resetFormData() {
+            if (this.currentSchema) this.formData[this.currentSchema] = {};
+            setTimeout(() => {
+                document.querySelectorAll('.form-input').forEach(input => input.value = '');
+                document.querySelectorAll('.option-card.selected').forEach(card => card.classList.remove('selected'));
+            }, 50);
+        },
+
+        getFormDataForSchema() {
+            return this.formData[this.currentSchema] || {};
+        },
+
+        // Union selection
+        selectUnionOption(fieldName, value, element) {
+            element.parentNode.querySelectorAll('.option-card').forEach(card => card.classList.remove('selected'));
+            element.classList.add('selected');
+            this.updateFormData(fieldName, value);
+        },
+
+        // Array management (keeping existing complex logic)
+        async addArrayItemByName(fieldName) {
+            const fieldKey = `${this.currentSchema}_${fieldName}`;
+            const field = this.fieldCache[fieldKey];
+            if (!field) {
+                console.error(`Field definition not found in cache for: ${fieldKey}`);
+                alert('Field definition not found. Please try refreshing the page.');
+                return;
+            }
+            return await this.addArrayItem(fieldName, field);
+        },
+
+        async addArrayItem(fieldName, field) {
+            try {
+                const schema = await this.fetchSchema(this.currentSchema);
+                const arrayContainer = document.getElementById(`array-${fieldName}`);
+                if (!arrayContainer) return;
+
+                if (!this.formData[this.currentSchema]) this.formData[this.currentSchema] = {};
+                if (!this.formData[this.currentSchema][fieldName]) this.formData[this.currentSchema][fieldName] = [];
+                
+                const itemIndex = this.formData[this.currentSchema][fieldName].length;
+                const ref = field.items?.$ref;
+                if (!ref) {
+                    console.error('Array item schema reference ($ref) not found.');
+                    return;
+                }
+
+                const schemaName = ref.split('/').pop();
+                const itemSchema = schema.schemas[schemaName] || schema.schemas.RootModel?.definitions?.[schemaName];
+                if (!itemSchema) {
+                    console.error(`Could not find schema for array item: ${ref}`);
+                    return;
+                }
+                
+                const itemHtml = this.generateArrayItemHtml(fieldName, itemIndex, itemSchema, schema.schemas);
+                arrayContainer.insertAdjacentHTML('beforeend', itemHtml);
+                
+                const itemData = { ...(itemSchema.default_values || {}) };
+                this.formData[this.currentSchema][fieldName].push(itemData);
+                console.log(`Added array item for ${fieldName}:`, itemData);
+            } catch (error) {
+                console.error('Failed to add array item:', error);
+            }
+        },
+
+        generateArrayItemHtml(fieldName, itemIndex, itemSchema, allSchemas) {
+            const itemId = `${fieldName}-item-${itemIndex}`;
+            let displayName = this.cleanDisplayName(itemSchema.title || itemSchema.model_name) || `Item ${itemIndex + 1}`;
+            
+            let fieldsHtml = '';
+            if (itemSchema.properties) {
+                const displayOrder = itemSchema.ui_metadata?.display_order || Object.keys(itemSchema.properties);
+                for (const propName of displayOrder) {
+                    const prop = itemSchema.properties[propName];
+                    if (prop) {
+                        fieldsHtml += this.generateArrayItemFieldHtml(fieldName, itemIndex, propName, prop, allSchemas);
+                    }
+                }
+            }
+            
+            return `
+                <div class="enhanced-card" id="${itemId}" style="margin-left: 1rem; border-left: 3px solid var(--primary-blue);">
+                    <div class="subsection-header">${displayName}</div>
+                    ${fieldsHtml}
+                    <div class="action-buttons">
+                        <button class="btn-danger" x-on:click="removeArrayItem('${fieldName}', ${itemIndex})">Remove ${displayName}</button>
                     </div>
                 </div>
             `;
-        }
-    }
-    selectorContainer.innerHTML = tilesHtml;
-}
+        },
 
-// Schema Selection Function
-async function selectSchema(schemaName, element) {
-    document.querySelectorAll('.schema-tile').forEach(tile => tile.classList.remove('active'));
-    element.classList.add('active');
-    currentSchema = schemaName;
-    await loadSchemaForm(schemaName);
-    resetFormData();
-}
+        generateArrayItemFieldHtml(fieldName, itemIndex, propName, prop, allSchemas) {
+            const displayName = prop.display_name || prop.title || propName;
+            const fieldId = `${fieldName}-${itemIndex}-${propName}`;
+            
+            if (prop.anyOf || prop.union_options || prop.ui_component === 'union_select') {
+                return this.generateArrayItemUnionField(fieldName, itemIndex, propName, prop, allSchemas);
+            }
+            if (prop.type === 'array' || prop.ui_component === 'array') {
+                return this.generateNestedArrayField(fieldName, itemIndex, propName, prop, allSchemas);
+            }
 
-async function loadSchemaForm(schemaName) {
-    try {
-        const schema = await fetchSchema(schemaName);
-        const rootModel = schema.schemas.RootModel;
-        
-        document.getElementById('form-header').style.display = 'block';
-        document.getElementById('form-actions').style.display = 'block';
-        
-        const formTitle = getSchemaTitle(rootModel, schemaName);
-        document.getElementById('form-header').textContent = formTitle;
-        
-        const formHtml = generateFormFromSchema(rootModel, schema.schemas);
-        document.getElementById('dynamic-form-container').innerHTML = formHtml;
-        
-        initializeFormData(rootModel);
-        await autoAddFirstArrayItems(rootModel);
-    } catch (error) {
-        console.error('Failed to load schema form:', error);
-        document.getElementById('dynamic-form-container').innerHTML = `
-            <div class="enhanced-card">
-                <div class="empty-state">
-                    <div class="empty-state-icon">❌</div>
-                    <p>Failed to load schema form</p>
+            const onChange = `x-on:change="updateArrayItemData('${fieldName}', ${itemIndex}, '${propName}', $event.target.value)"`;
+            const onChangeFloat = `x-on:change="updateArrayItemData('${fieldName}', ${itemIndex}, '${propName}', parseFloat($event.target.value))"`;
+
+            switch (prop.type) {
+                case 'number':
+                case 'integer':
+                     return `
+                        <div class="form-group">
+                            <label class="form-label">${displayName}</label>
+                            <input type="number" class="form-input" id="${fieldId}" placeholder="Enter ${displayName.toLowerCase()}" ${onChangeFloat}>
+                        </div>`;
+                default:
+                    return `
+                        <div class="form-group">
+                            <label class="form-label">${displayName}</label>
+                            <input type="text" class="form-input" id="${fieldId}" placeholder="Enter ${displayName.toLowerCase()}" ${onChange}>
+                        </div>`;
+            }
+        },
+
+        generateNestedArrayField(parentFieldName, parentIndex, fieldName, field, allSchemas) {
+            const displayName = field.display_name || field.title || fieldName;
+            const nestedFieldId = `${parentFieldName}-${parentIndex}-${fieldName}`;
+            this.fieldCache[`${this.currentSchema}_${nestedFieldId}`] = field;
+            return `
+                <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    <div class="section-header-with-plus">
+                        <span>${displayName}</span>
+                        <button class="btn-plus" x-on:click="addNestedArrayItem('${nestedFieldId}')" title="Add ${displayName}">+</button>
+                    </div>
+                    <div id="array-${nestedFieldId}" class="array-container"></div>
                 </div>
-            </div>
-        `;
-    }
-}
+            `;
+        },
 
-async function autoAddFirstArrayItems(rootModel) {
-    if (!rootModel.properties) return;
-    for (const [fieldName, field] of Object.entries(rootModel.properties)) {
-        if (field.type === 'array' && field.ui_component === 'array') {
-            setTimeout(async () => {
-                await addArrayItemByName(fieldName);
+        async addNestedArrayItem(nestedFieldId) {
+            const fieldKey = `${this.currentSchema}_${nestedFieldId}`;
+            const field = this.fieldCache[fieldKey];
+            if (!field) {
+                console.error(`Nested field definition not found in cache for: ${fieldKey}`);
+                return;
+            }
+            return await this.addArrayItem(nestedFieldId, field);
+        },
+
+        generateArrayItemUnionField(fieldName, itemIndex, propName, prop, allSchemas) {
+            const displayName = prop.display_name || prop.title || propName;
+            let unionOptions = prop.union_options || [];
+            
+            if (unionOptions.length === 0 && prop.anyOf) {
+                unionOptions = prop.anyOf.map(option => {
+                    if (!option.$ref) return null;
+                    const schemaName = option.$ref.split('/').pop();
+                    return {
+                        value: schemaName.toLowerCase(),
+                        label: this.cleanDisplayName(schemaName),
+                        schema_ref: option.$ref,
+                    };
+                }).filter(Boolean);
+            }
+            
+            let optionsHtml = unionOptions.map(option => `
+                <div class="option-card" x-on:click="selectArrayItemUnionOption('${fieldName}', ${itemIndex}, '${propName}', '${option.value}', $event.currentTarget)">
+                    <span class="option-icon">${this.getUnionIcon(option.label)}</span>
+                    <span class="option-name">${option.label}</span>
+                </div>
+            `).join('');
+
+            return `
+                <div class="form-group">
+                    <label class="form-label">${displayName}</label>
+                    <div class="option-selection">${optionsHtml}</div>
+                </div>
+            `;
+        },
+
+        updateArrayItemData(fieldName, itemIndex, propName, value) {
+            if (!this.formData[this.currentSchema]?.[fieldName]?.[itemIndex]) {
+                if (!this.formData[this.currentSchema][fieldName]) {
+                    this.formData[this.currentSchema][fieldName] = [];
+                }
+                if (!this.formData[this.currentSchema][fieldName][itemIndex]) {
+                    this.formData[this.currentSchema][fieldName][itemIndex] = {};
+                }
+            }
+            this.formData[this.currentSchema][fieldName][itemIndex][propName] = value;
+            console.log(`Updated array item data:`, this.formData[this.currentSchema][fieldName][itemIndex]);
+        },
+
+        selectArrayItemUnionOption(fieldName, itemIndex, propName, value, element) {
+            element.parentNode.querySelectorAll('.option-card').forEach(card => card.classList.remove('selected'));
+            element.classList.add('selected');
+            this.updateArrayItemData(fieldName, itemIndex, propName, value);
+        },
+
+        removeArrayItem(fieldName, itemIndex) {
+            const itemId = `${fieldName}-item-${itemIndex}`;
+            document.getElementById(itemId)?.remove();
+            this.formData[this.currentSchema]?.[fieldName]?.splice(itemIndex, 1);
+            console.log(`Removed array item ${itemIndex} from ${fieldName}`);
+        },
+
+        // Entity management
+        async addEntity() {
+            if (!this.currentSchema) {
+                alert('Please select a schema first');
+                return;
+            }
+            try {
+                const schema = await this.fetchSchema(this.currentSchema);
+                const rootModel = schema.schemas.RootModel;
+                const arrayField = this.findMainArrayField(rootModel);
+                if (arrayField) {
+                    this.addArrayItem(arrayField.name, arrayField.field);
+                } else {
+                    alert('No main entity array found in schema');
+                }
+            } catch (error) {
+                console.error('Failed to add entity:', error);
+            }
+        },
+
+        findMainArrayField(model) {
+            if (!model.properties) return null;
+            for (const [fieldName, field] of Object.entries(model.properties)) {
+                if (field.type === 'array' && field.ui_component === 'array') {
+                    return { name: fieldName, field: field };
+                }
+            }
+            return null;
+        },
+
+        // Data processing
+        processData() {
+            if (!this.currentSchema || !Object.keys(this.getFormDataForSchema()).length) {
+                alert('Please select a schema and enter some data first');
+                return;
+            }
+            
+            this.showResults = true;
+            const results = this.generateSchemaResults();
+            this.displayResults(results);
+            
+            setTimeout(() => {
+                document.querySelector('[x-show="showResults"]')?.scrollIntoView({ behavior: 'smooth' });
             }, 100);
-        }
-    }
-}
+        },
 
-function generateFormFromSchema(model, allSchemas) {
-    if (!model.properties) return '';
-    let formHtml = '';
-    const displayOrder = model.ui_metadata?.display_order || Object.keys(model.properties);
-    for (const fieldName of displayOrder) {
-        const field = model.properties[fieldName];
-        if (field) {
-            formHtml += generateFieldHtml(fieldName, field, allSchemas);
-        }
-    }
-    return formHtml;
-}
+        generateSchemaResults() {
+            const data = this.formData[this.currentSchema] || {};
+            const dataKeys = Object.keys(data);
+            return {
+                summary: {
+                    schema: this.currentSchema,
+                    fieldsCompleted: dataKeys.length,
+                    dataEntries: JSON.stringify(data, null, 2)
+                },
+                insights: [
+                    `Using schema: <strong>${this.currentSchema}</strong>`,
+                    `Completed <strong>${dataKeys.length}</strong> top-level form fields.`,
+                    'Data structure follows the selected API-driven schema format.',
+                    'Form data is ready for processing or export.'
+                ]
+            };
+        },
 
-function generateFieldHtml(fieldName, field, allSchemas) {
-    const displayName = field.display_name || field.title || fieldName;
-    const fieldId = `field-${fieldName}`;
-    
-    switch (field.ui_component) {
-        case 'text_input':
-            return `
-                <div class="mb-3">
-                    <label class="form-label" for="${fieldId}">${displayName}</label>
-                    <input type="text" class="form-control" id="${fieldId}" 
-                           placeholder="Enter ${displayName.toLowerCase()}"
-                           onchange="updateFormData('${fieldName}', this.value)">
+        displayResults(results) {
+            const dataStr = results.summary.dataEntries;
+            this.resultsHtml = `
+                <div style="margin-bottom: 2rem;">
+                    <h4 style="color: #333; margin-bottom: 1rem;">📊 Processing Summary</h4>
+                    <ul style="list-style: none; padding: 0;">
+                        ${results.insights.map(insight => `
+                            <li style="padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0;">
+                                <span style="color: var(--primary-blue); margin-right: 0.5rem;">•</span>
+                                ${insight}
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+                <div>
+                    <h4 style="color: #333; margin-bottom: 1rem;">📋 Submitted Data (JSON)</h4>
+                    <pre style="background-color: #f8f9fa; padding: 1rem; border-radius: 6px; border: 1px solid var(--border-color); white-space: pre-wrap; word-wrap: break-word;"><code>${dataStr}</code></pre>
                 </div>
             `;
-        case 'number_input':
-            const numConf = field.number_config || {};
-            return `
-                <div class="mb-3">
-                    <label class="form-label" for="${fieldId}">${displayName}</label>
-                    <input type="number" class="form-control" id="${fieldId}"
-                           min="${numConf.min || ''}" max="${numConf.max || ''}" step="${numConf.step || 1}"
-                           placeholder="Enter ${displayName.toLowerCase()}"
-                           onchange="updateFormData('${fieldName}', parseFloat(this.value))">
-                </div>
-            `;
-        case 'array':
-            return generateArrayField(fieldName, field, allSchemas);
-        case 'union_select':
-            return generateUnionSelectField(fieldName, field, allSchemas);
-        default:
-            return `
-                <div class="mb-3">
-                    <label class="form-label" for="${fieldId}">${displayName}</label>
-                    <input type="text" class="form-control" id="${fieldId}"
-                           placeholder="Enter ${displayName.toLowerCase()}"
-                           onchange="updateFormData('${fieldName}', this.value)">
-                </div>
-            `;
-    }
-}
+        },
 
-function generateArrayField(fieldName, field, allSchemas) {
-    const displayName = field.display_name || field.title || fieldName;
-    fieldCache[`${currentSchema}_${fieldName}`] = field;
-    return `
-        <div class="card mb-4">
-            <div class="card-body">
-                <div class="d-flex align-items-center justify-content-between mb-3">
-                    <h5 class="card-title mb-0">${displayName}</h5>
-                    <button class="btn btn-primary btn-plus" onclick="addArrayItemByName('${fieldName}')" title="Add ${displayName}">+</button>
-                </div>
-                <div id="array-${fieldName}"></div>
-            </div>
-        </div>
-    `;
-}
+        // Data export
+        exportData() {
+            if (!this.currentSchema || !Object.keys(this.getFormDataForSchema()).length) {
+                alert('No data to export. Please fill out the form first.');
+                return;
+            }
+            const dataToExport = {
+                timestamp: new Date().toISOString(),
+                workflow_name: this.currentSchema,
+                form_data: this.formData[this.currentSchema]
+            };
+            
+            const dataStr = JSON.stringify(dataToExport, null, 2);
+            const dataBlob = new Blob([dataStr], {type: 'application/json'});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `${this.currentSchema}-data-${new Date().toISOString().split('T')[0]}.json`;
+            link.click();
+        },
 
-function generateUnionSelectField(fieldName, field, allSchemas) {
-    const displayName = field.display_name || field.title || fieldName;
-    const unionOptions = field.union_options || [];
-    let optionsHtml = unionOptions.map(option => `
-        <div class="option-card" onclick="selectUnionOption('${fieldName}', '${option.value}', this)">
-            <span class="option-icon">${getUnionIcon(option.label)}</span>
-            <span class="option-name">${option.label}</span>
-        </div>
-    `).join('');
-
-    return `
-        <div class="form-group">
-            <label class="form-label">${displayName}</label>
-            <div class="option-selection" id="union-${fieldName}">${optionsHtml}</div>
-        </div>
-    `;
-}
-
-function getUnionIcon(label) {
-    // Returns a generic icon for any label
-    return '🔧';
-}
-
-function selectUnionOption(fieldName, value, element) {
-    element.parentNode.querySelectorAll('.option-card').forEach(card => card.classList.remove('selected'));
-    element.classList.add('selected');
-    updateFormData(fieldName, value);
-}
-
-// Wrapper function that uses cached field data
-async function addArrayItemByName(fieldName) {
-    const fieldKey = `${currentSchema}_${fieldName}`;
-    const field = fieldCache[fieldKey];
-    if (!field) {
-        console.error(`Field definition not found in cache for: ${fieldKey}`);
-        alert('Field definition not found. Please try refreshing the page.');
-        return;
-    }
-    return await addArrayItem(fieldName, field);
-}
-
-async function addArrayItem(fieldName, field) {
-    try {
-        const schema = await fetchSchema(currentSchema);
-        const arrayContainer = document.getElementById(`array-${fieldName}`);
-        if (!arrayContainer) return;
-
-        if (!formData[currentSchema]) formData[currentSchema] = {};
-        if (!formData[currentSchema][fieldName]) formData[currentSchema][fieldName] = [];
-        
-        const itemIndex = formData[currentSchema][fieldName].length;
-        const ref = field.items?.$ref;
-        if (!ref) {
-            console.error('Array item schema reference ($ref) not found.');
-            return;
-        }
-
-        const schemaName = ref.split('/').pop();
-        const itemSchema = schema.schemas[schemaName] || schema.schemas.RootModel?.definitions?.[schemaName];
-        if (!itemSchema) {
-            console.error(`Could not find schema for array item: ${ref}`);
-            return;
-        }
-        
-        const itemHtml = generateArrayItemHtml(fieldName, itemIndex, itemSchema, schema.schemas);
-        arrayContainer.insertAdjacentHTML('beforeend', itemHtml);
-        
-        const itemData = { ...(itemSchema.default_values || {}) };
-        formData[currentSchema][fieldName].push(itemData);
-        console.log(`Added array item for ${fieldName}:`, itemData);
-    } catch (error) {
-        console.error('Failed to add array item:', error);
-    }
-}
-
-function generateArrayItemHtml(fieldName, itemIndex, itemSchema, allSchemas) {
-    const itemId = `${fieldName}-item-${itemIndex}`;
-    let displayName = cleanDisplayName(itemSchema.title || itemSchema.model_name) || `Item ${itemIndex + 1}`;
-    
-    let fieldsHtml = '';
-    if (itemSchema.properties) {
-        const displayOrder = itemSchema.ui_metadata?.display_order || Object.keys(itemSchema.properties);
-        for (const propName of displayOrder) {
-            const prop = itemSchema.properties[propName];
-            if (prop) {
-                fieldsHtml += generateArrayItemFieldHtml(fieldName, itemIndex, propName, prop, allSchemas);
+        // Reset functionality
+        resetAll() {
+            if (confirm('Are you sure you want to reset all data? This action cannot be undone.')) {
+                this.formData = {};
+                this.currentSchema = null;
+                this.dynamicFormHtml = '';
+                this.resultsHtml = '';
+                this.showFormHeader = false;
+                this.showFormActions = false;
+                this.showResults = false;
             }
         }
-    }
-    
-    return `
-        <div class="enhanced-card" id="${itemId}" style="margin-left: 1rem; border-left: 3px solid var(--primary-blue);">
-            <div class="subsection-header">${displayName}</div>
-            ${fieldsHtml}
-            <div class="action-buttons">
-                <button class="btn-danger" onclick="removeArrayItem('${fieldName}', ${itemIndex})">Remove ${displayName}</button>
-            </div>
-        </div>
-    `;
-}
-
-function generateArrayItemFieldHtml(fieldName, itemIndex, propName, prop, allSchemas) {
-    const displayName = prop.display_name || prop.title || propName;
-    const fieldId = `${fieldName}-${itemIndex}-${propName}`;
-    
-    if (prop.anyOf || prop.union_options || prop.ui_component === 'union_select') {
-        return generateArrayItemUnionField(fieldName, itemIndex, propName, prop, allSchemas);
-    }
-    if (prop.type === 'array' || prop.ui_component === 'array') {
-        return generateNestedArrayField(fieldName, itemIndex, propName, prop, allSchemas);
-    }
-
-    const onchange = `onchange="updateArrayItemData('${fieldName}', ${itemIndex}, '${propName}', this.value)"`;
-    const onchangeFloat = `onchange="updateArrayItemData('${fieldName}', ${itemIndex}, '${propName}', parseFloat(this.value))"`;
-
-    switch (prop.type) {
-        case 'number':
-        case 'integer':
-             return `
-                <div class="form-group">
-                    <label class="form-label">${displayName}</label>
-                    <input type="number" class="form-input" id="${fieldId}" placeholder="Enter ${displayName.toLowerCase()}" ${onchangeFloat}>
-                </div>`;
-        default:
-            return `
-                <div class="form-group">
-                    <label class="form-label">${displayName}</label>
-                    <input type="text" class="form-input" id="${fieldId}" placeholder="Enter ${displayName.toLowerCase()}" ${onchange}>
-                </div>`;
-    }
-}
-
-function generateNestedArrayField(parentFieldName, parentIndex, fieldName, field, allSchemas) {
-    const displayName = field.display_name || field.title || fieldName;
-    const nestedFieldId = `${parentFieldName}-${parentIndex}-${fieldName}`;
-    fieldCache[`${currentSchema}_${nestedFieldId}`] = field;
-    return `
-        <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
-            <div class="section-header-with-plus">
-                <span>${displayName}</span>
-                <button class="btn-plus" onclick="addNestedArrayItem('${nestedFieldId}')" title="Add ${displayName}">+</button>
-            </div>
-            <div id="array-${nestedFieldId}" class="array-container"></div>
-        </div>
-    `;
-}
-
-async function addNestedArrayItem(nestedFieldId) {
-    const fieldKey = `${currentSchema}_${nestedFieldId}`;
-    const field = fieldCache[fieldKey];
-    if (!field) {
-        console.error(`Nested field definition not found in cache for: ${fieldKey}`);
-        return;
-    }
-    return await addArrayItem(nestedFieldId, field);
-}
-
-function generateArrayItemUnionField(fieldName, itemIndex, propName, prop, allSchemas) {
-    const displayName = prop.display_name || prop.title || propName;
-    let unionOptions = prop.union_options || [];
-    
-    if (unionOptions.length === 0 && prop.anyOf) {
-        unionOptions = prop.anyOf.map(option => {
-            if (!option.$ref) return null;
-            const schemaName = option.$ref.split('/').pop();
-            return {
-                value: schemaName.toLowerCase(),
-                label: cleanDisplayName(schemaName),
-                schema_ref: option.$ref,
-            };
-        }).filter(Boolean);
-    }
-    
-    let optionsHtml = unionOptions.map(option => `
-        <div class="option-card" onclick="selectArrayItemUnionOption('${fieldName}', ${itemIndex}, '${propName}', '${option.value}', this)">
-            <span class="option-icon">${getUnionIcon(option.label)}</span>
-            <span class="option-name">${option.label}</span>
-        </div>
-    `).join('');
-
-    return `
-        <div class="form-group">
-            <label class="form-label">${displayName}</label>
-            <div class="option-selection">${optionsHtml}</div>
-        </div>
-    `;
-}
-
-function updateArrayItemData(fieldName, itemIndex, propName, value) {
-    if (!formData[currentSchema]?.[fieldName]?.[itemIndex]) {
-        formData[currentSchema][fieldName][itemIndex] = {};
-    }
-    formData[currentSchema][fieldName][itemIndex][propName] = value;
-    console.log(`Updated array item data:`, formData[currentSchema][fieldName][itemIndex]);
-}
-
-function selectArrayItemUnionOption(fieldName, itemIndex, propName, value, element) {
-    element.parentNode.querySelectorAll('.option-card').forEach(card => card.classList.remove('selected'));
-    element.classList.add('selected');
-    updateArrayItemData(fieldName, itemIndex, propName, value);
-}
-
-function removeArrayItem(fieldName, itemIndex) {
-    const itemId = `${fieldName}-item-${itemIndex}`;
-    document.getElementById(itemId)?.remove();
-    formData[currentSchema]?.[fieldName]?.splice(itemIndex, 1);
-    console.log(`Removed array item ${itemIndex} from ${fieldName}`);
-}
-
-function updateFormData(fieldName, value) {
-    if (!formData[currentSchema]) formData[currentSchema] = {};
-    formData[currentSchema][fieldName] = value;
-    console.log('Updated form data:', formData);
-}
-
-function initializeFormData(model) {
-    if (!formData[currentSchema]) formData[currentSchema] = {};
-    if (model.default_values) {
-        Object.assign(formData[currentSchema], model.default_values);
-    }
-}
-
-function resetFormData() {
-    if (currentSchema) formData[currentSchema] = {};
-    document.querySelectorAll('.form-input').forEach(input => input.value = '');
-    document.querySelectorAll('.option-card.selected').forEach(card => card.classList.remove('selected'));
-}
-
-async function addEntity() {
-    if (!currentSchema) {
-        alert('Please select a schema first');
-        return;
-    }
-    try {
-        const schema = await fetchSchema(currentSchema);
-        const rootModel = schema.schemas.RootModel;
-        const arrayField = findMainArrayField(rootModel);
-        if (arrayField) {
-            addArrayItem(arrayField.name, arrayField.field);
-        } else {
-            alert('No main entity array found in schema');
-        }
-    } catch (error) {
-        console.error('Failed to add entity:', error);
-    }
-}
-
-function findMainArrayField(model) {
-    if (!model.properties) return null;
-    for (const [fieldName, field] of Object.entries(model.properties)) {
-        if (field.type === 'array' && field.ui_component === 'array') {
-            return { name: fieldName, field: field };
-        }
-    }
-    return null;
-}
-
-function processData() {
-    if (!currentSchema || !formData[currentSchema]) {
-        alert('Please select a schema and enter some data first');
-        return;
-    }
-    
-    const resultsSection = document.getElementById('results-section');
-    resultsSection.style.display = 'block';
-    const results = generateSchemaResults();
-    displayResults(results);
-    resultsSection.scrollIntoView({ behavior: 'smooth' });
-}
-
-function generateSchemaResults() {
-    const data = formData[currentSchema] || {};
-    const dataKeys = Object.keys(data);
-    return {
-        summary: {
-            schema: currentSchema,
-            fieldsCompleted: dataKeys.length,
-            dataEntries: JSON.stringify(data, null, 2)
-        },
-        insights: [
-            `Using schema: <strong>${currentSchema}</strong>`,
-            `Completed <strong>${dataKeys.length}</strong> top-level form fields.`,
-            'Data structure follows the selected API-driven schema format.',
-            'Form data is ready for processing or export.'
-        ]
-    };
-}
-
-function displayResults(results) {
-    const container = document.getElementById('results-container');
-    const dataStr = results.summary.dataEntries;
-    const html = `
-        <div style="margin-bottom: 2rem;">
-            <h4 style="color: #333; margin-bottom: 1rem;">📊 Processing Summary</h4>
-            <ul style="list-style: none; padding: 0;">
-                ${results.insights.map(insight => `
-                    <li style="padding: 0.5rem 0; border-bottom: 1px solid #f0f0f0;">
-                        <span style="color: var(--primary-blue); margin-right: 0.5rem;">•</span>
-                        ${insight}
-                    </li>
-                `).join('')}
-            </ul>
-        </div>
-        <div>
-            <h4 style="color: #333; margin-bottom: 1rem;">📋 Submitted Data (JSON)</h4>
-            <pre style="background-color: #f8f9fa; padding: 1rem; border-radius: 6px; border: 1px solid var(--border-color); white-space: pre-wrap; word-wrap: break-word;"><code>${dataStr}</code></pre>
-        </div>
-    `;
-    container.innerHTML = html;
-}
-
-function exportData() {
-    if (!currentSchema || !formData[currentSchema]) {
-        alert('No data to export. Please fill out the form first.');
-        return;
-    }
-    const dataToExport = {
-        timestamp: new Date().toISOString(),
-        workflow_name: currentSchema,
-        form_data: formData[currentSchema]
-    };
-    
-    const dataStr = JSON.stringify(dataToExport, null, 2);
-    const dataBlob = new Blob([dataStr], {type: 'application/json'});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(dataBlob);
-    link.download = `${currentSchema}-data-${new Date().toISOString().split('T')[0]}.json`;
-    link.click();
-}
-
-function resetAll(showConfirmation = true) {
-    if (!showConfirmation || confirm('Are you sure you want to reset all data? This action cannot be undone.')) {
-        formData = {};
-        currentSchema = null;
-        
-        document.getElementById('dynamic-form-container').innerHTML = '';
-        document.getElementById('form-header').style.display = 'none';
-        document.getElementById('form-actions').style.display = 'none';
-        
-        document.querySelectorAll('.schema-tile').forEach(tile => tile.classList.remove('active'));
-        document.getElementById('results-section').style.display = 'none';
     }
 }
 </script>
